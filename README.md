@@ -184,7 +184,7 @@ POST /auth/login
   "password": "secret123"
 }
 ```
-![Login and get JWT User Screenshot](images/login.png)
+![Login and get JWT User Screenshot](images/login.jpg)
 
 ### Generate a Quiz
 
