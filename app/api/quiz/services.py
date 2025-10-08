@@ -9,6 +9,8 @@ from typing import List
 from app.core.config import settings
 import json
 import ast
+from typing import List, Union
+import re
 
 class QuizService:
     def __init__(
@@ -33,26 +35,27 @@ class QuizService:
 
         raw_response = self.llm_client.chat(prompt=prompt,expect_json=True, default_keys={"questions": []})
         print("raw response: ",raw_response)
-        if isinstance(raw_response, str):
-            try:
-                raw_response = json.loads(raw_response)
-            except json.JSONDecodeError as e:
-                try:
-                    raw_response = ast.literal_eval(raw_response)
-                except Exception as e:
-                    raise ValueError(f"Failed to parse LLM response as JSON or Python dict: {e}")
+        questions = self._parse_llm_response(raw_response)
+        # if isinstance(raw_response, str):
+        #     try:
+        #         raw_response = json.loads(raw_response)
+        #     except json.JSONDecodeError as e:
+        #         try:
+        #             raw_response = ast.literal_eval(raw_response)
+        #         except Exception as e:
+        #             raise ValueError(f"Failed to parse LLM response as JSON or Python dict: {e}")
 
-        if isinstance(raw_response, dict):
-            questions = raw_response.get("questions", [])
-        elif isinstance(raw_response, list):
-            questions = raw_response
-        else:
-            raise ValueError("Invalid LLM response format: expected dict or list.")
+        # if isinstance(raw_response, dict):
+        #     questions = raw_response.get("questions", [])
+        # elif isinstance(raw_response, list):
+        #     questions = raw_response
+        # else:
+        #     raise ValueError("Invalid LLM response format: expected dict or list.")
     
         if not isinstance(questions, list):
             raise ValueError("Questions must be a list.")
         
-        
+
         tags = list({tag for q in questions for tag in q.get("tags", [])})
         quiz_type = "personalized"  
 
@@ -149,7 +152,64 @@ class QuizService:
         self.vector_store.add_documents(vector_docs)
 
         return {"status": "saved", "embedded": len(open_ended)}
+    
 
+    def _parse_llm_response(self, raw_response: Union[str, dict, list]) -> list:
+        """
+        Robustly parse the LLM response and return a list of question dictionaries.
+        Handles:
+        - Raw JSON strings
+        - Python literals
+        - Nested strings inside 'questions', 'data', or 'response'
+        - Fallbacks to `ast.literal_eval` when needed
+        """
+
+        def _clean_json_string(s: str) -> str:
+            """Clean common JSON issues."""
+            s = re.sub(r'//.*', '', s)  # Remove comments
+            s = s.replace('...', '')  # Remove ellipses
+            s = re.sub(r',\s*([\]}])', r'\1', s)  # Remove trailing commas
+            return s.strip()
+
+        def _try_parse_string(s: str):
+            """Try parsing string as JSON or Python literal."""
+            try:
+                return json.loads(_clean_json_string(s))
+            except Exception:
+                try:
+                    return ast.literal_eval(s)
+                except Exception:
+                    return None
+
+        # Step 1: If string, parse
+        if isinstance(raw_response, str):
+            parsed = _try_parse_string(raw_response)
+            if parsed is not None:
+                raw_response = parsed
+
+        # Step 2: If dict, look for embedded questions
+        if isinstance(raw_response, dict):
+            for key in ["questions", "data", "response", "items"]:
+                if key in raw_response:
+                    inner = raw_response[key]
+                    if isinstance(inner, str):
+                        inner = _try_parse_string(inner)
+                    if isinstance(inner, list):
+                        return inner
+                    elif isinstance(inner, dict) and "questions" in inner:
+                        return inner["questions"]
+            # Edge case: if dict is actually a single question
+            if "question_text" in raw_response:
+                return [raw_response]
+
+        # Step 3: Already a list
+        if isinstance(raw_response, list):
+            return raw_response
+
+        # Final fallback failed
+        raise ValueError(
+            f"Unable to parse LLM response into list of questions. Type: {type(raw_response)} | Content: {str(raw_response)[:500]}"
+        )
 
 
    

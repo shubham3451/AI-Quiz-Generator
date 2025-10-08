@@ -173,6 +173,7 @@ POST /auth/register
   "password": "secret123"
 }
 ```
+![Register User Screenshot](images/register.jpg)
 
 ### Login to get JWT
 
@@ -183,6 +184,7 @@ POST /auth/login
   "password": "secret123"
 }
 ```
+![Login and get JWT User Screenshot](images/login.png)
 
 ### Generate a Quiz
 
@@ -203,7 +205,8 @@ Headers: Authorization: Bearer <JWT>
   "bio": "A software engineer who loves hiking and coffee."
 }
 ```
-
+![generate quiz](images/quizgenerate.jpg)
+![generate quiz](images/quizgenerate2.jpg)
 ### Submit Quiz Responses
 
 ```http
@@ -219,6 +222,8 @@ Headers: Authorization: Bearer <JWT>
   ]
 }
 ```
+![submit responses Screenshot](images/submitresponses.jpg)
+![submit responses Screenshot](images/submitresponses2.jpg)
 
 ### Get Feedback
 
@@ -226,7 +231,7 @@ Headers: Authorization: Bearer <JWT>
 GET /feedback?quiz_id=<quiz_id>&topic=Python
 Headers: Authorization: Bearer <JWT>
 ```
-
+![feedback Screenshot](images/feedback.jpg)
 ---
 
 ##  Notes
